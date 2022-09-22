@@ -1,21 +1,19 @@
-#To Test
-
-import os
-import pickle
-import pandas as pd
-import numpy as np
 import multiprocessing
 from itertools import repeat
 
+from models import fastaiModel
+from models.wavelet import WaveletModel
 from utilities.utils import *
 
 '''
-    Experiment on SCP-ECG statements. All experiments based on SCP are performed and evaluated the same way.
+Experiment on SCP-ECG statements.
+All experiments based on SCP are performed and evaluated the same way.
 '''
 
 
-def __init__(self, experiment_name, task, datafolder, outputfolder, models, sampling_frequency=100, min_samples=0,
-             train_fold=8, val_fold=9, test_fold=10, folds_type='strat'):
+def __init__(self, experiment_name, task, data_folder, output_folder, models,
+             sampling_frequency=100, min_samples=0, train_fold=8, val_fold=9,
+             test_fold=10, folds_type='strat'):
     self.models = models
     self.min_samples = min_samples
     self.task = task
@@ -24,31 +22,31 @@ def __init__(self, experiment_name, task, datafolder, outputfolder, models, samp
     self.test_fold = test_fold
     self.folds_type = folds_type
     self.experiment_name = experiment_name
-    self.outputfolder = outputfolder
-    self.datafolder = datafolder
+    self.output_folder = output_folder
+    self.data_folder = data_folder
     self.sampling_frequency = sampling_frequency
 
     # create folder structure if needed
-    if not os.path.exists(self.outputfolder + self.experiment_name):
-        os.makedirs(self.outputfolder + self.experiment_name)
-        if not os.path.exists(self.outputfolder + self.experiment_name + '/results/'):
-            os.makedirs(self.outputfolder + self.experiment_name + '/results/')
-        if not os.path.exists(outputfolder + self.experiment_name + '/models/'):
-            os.makedirs(self.outputfolder + self.experiment_name + '/models/')
-        if not os.path.exists(outputfolder + self.experiment_name + '/data/'):
-            os.makedirs(self.outputfolder + self.experiment_name + '/data/')
+    if not os.path.exists(self.output_folder + self.experiment_name):
+        os.makedirs(self.output_folder + self.experiment_name)
+        if not os.path.exists(self.output_folder + self.experiment_name + '/results/'):
+            os.makedirs(self.output_folder + self.experiment_name + '/results/')
+        if not os.path.exists(output_folder + self.experiment_name + '/models/'):
+            os.makedirs(self.output_folder + self.experiment_name + '/models/')
+        if not os.path.exists(output_folder + self.experiment_name + '/data/'):
+            os.makedirs(self.output_folder + self.experiment_name + '/data/')
 
 
 def prepare(self):
     # Load PTB-XL data
-    self.data, self.raw_labels = load_dataset(self.datafolder, self.sampling_frequency)
+    self.data, self.raw_labels = load_dataset(self.data_folder, self.sampling_frequency)
 
     # Preprocess label data
-    self.labels = compute_label_aggregations(self.raw_labels, self.datafolder, self.task)
+    self.labels = compute_label_aggregations(self.raw_labels, self.data_folder, self.task)
 
     # Select relevant data and convert to one-hot
     self.data, self.labels, self.Y, _ = select_data(self.data, self.labels, self.task, self.min_samples,
-                                                               self.outputfolder + self.experiment_name + '/data/')
+                                                    self.output_folder + self.experiment_name + '/data/')
     self.input_shape = self.data[0].shape
 
     # 10th fold for testing (9th for now)
@@ -63,17 +61,17 @@ def prepare(self):
 
     # Preprocess signal data
     self.X_train, self.X_val, self.X_test = preprocess_signals(self.X_train, self.X_val, self.X_test,
-                                                                          self.outputfolder + self.experiment_name + '/data/')
+                                                               self.output_folder + self.experiment_name + '/data/')
     self.n_classes = self.y_train.shape[1]
 
     # save train and test labels
-    self.y_train.dump(self.outputfolder + self.experiment_name + '/data/y_train.npy')
-    self.y_val.dump(self.outputfolder + self.experiment_name + '/data/y_val.npy')
-    self.y_test.dump(self.outputfolder + self.experiment_name + '/data/y_test.npy')
+    self.y_train.dump(self.output_folder + self.experiment_name + '/data/y_train.npy')
+    self.y_val.dump(self.output_folder + self.experiment_name + '/data/y_val.npy')
+    self.y_test.dump(self.output_folder + self.experiment_name + '/data/y_test.npy')
 
-    modelname = 'naive'
+    model_name = 'naive'
     # create most naive predictions via simple mean in training
-    mpath = self.outputfolder + self.experiment_name + '/models/' + modelname + '/'
+    mpath = self.output_folder + self.experiment_name + '/models/' + model_name + '/'
     # create folder for model outputs
     if not os.path.exists(mpath):
         os.makedirs(mpath)
@@ -88,11 +86,11 @@ def prepare(self):
 
 def perform(self):
     for model_description in self.models:
-        modelname = model_description['modelname']
-        modeltype = model_description['modeltype']
-        modelparams = model_description['parameters']
+        model_name = model_description['model_name']
+        model_type = model_description['model_type']
+        model_params = model_description['parameters']
 
-        mpath = self.outputfolder + self.experiment_name + '/models/' + modelname + '/'
+        mpath = self.output_folder + self.experiment_name + '/models/' + model_name + '/'
         # create folder for model outputs
         if not os.path.exists(mpath):
             os.makedirs(mpath)
@@ -101,14 +99,14 @@ def perform(self):
 
         n_classes = self.Y.shape[1]
         # load respective model
-        if modeltype == 'WAVELET':
-            model = wavelet.WaveletModel(modelname, n_classes, self.sampling_frequency, mpath, self.input_shape,
-                                         **modelparams)
-        elif modeltype == "fastai_model":
-            model = fastaiModel.fastai_model(modelname, n_classes, self.sampling_frequency, mpath, self.input_shape,
-                                             **modelparams)
+        if model_type == 'WAVELET':
+            model = WaveletModel(model_name, n_classes, self.sampling_frequency, mpath, self.input_shape,
+                                 **model_params)
+        elif model_type == "fastai_model":
+            model = fastaiModel.fastai_model(model_name, n_classes, self.sampling_frequency, mpath, self.input_shape,
+                                             **model_params)
         else:
-            assert (True)
+            assert True
             break
 
         # fit model
@@ -118,9 +116,9 @@ def perform(self):
         model.predict(self.X_val).dump(mpath + 'y_val_pred.npy')
         model.predict(self.X_test).dump(mpath + 'y_test_pred.npy')
 
-    modelname = 'ensemble'
+    model_name = 'ensemble'
     # create ensemble predictions via simple mean across model predictions (except naive predictions)
-    ensemblepath = self.outputfolder + self.experiment_name + '/models/' + modelname + '/'
+    ensemblepath = self.output_folder + self.experiment_name + '/models/' + model_name + '/'
     # create folder for model outputs
     if not os.path.exists(ensemblepath):
         os.makedirs(ensemblepath)
@@ -128,9 +126,9 @@ def perform(self):
         os.makedirs(ensemblepath + 'results/')
     # load all predictions
     ensemble_train, ensemble_val, ensemble_test = [], [], []
-    for model_description in os.listdir(self.outputfolder + self.experiment_name + '/models/'):
+    for model_description in os.listdir(self.output_folder + self.experiment_name + '/models/'):
         if not model_description in ['ensemble', 'naive']:
-            mpath = self.outputfolder + self.experiment_name + '/models/' + model_description + '/'
+            mpath = self.output_folder + self.experiment_name + '/models/' + model_description + '/'
             ensemble_train.append(np.load(mpath + 'y_train_pred.npy', allow_pickle=True))
             ensemble_val.append(np.load(mpath + 'y_val_pred.npy', allow_pickle=True))
             ensemble_test.append(np.load(mpath + 'y_test_pred.npy', allow_pickle=True))
@@ -142,9 +140,10 @@ def perform(self):
 
 def evaluate(self, n_bootstraping_samples=100, n_jobs=20, bootstrap_eval=False, dumped_bootstraps=True):
     # get labels
-    y_train = np.load(self.outputfolder + self.experiment_name + '/data/y_train.npy', allow_pickle=True)
-    y_val = np.load(self.outputfolder + self.experiment_name + '/data/y_val.npy', allow_pickle=True)
-    y_test = np.load(self.outputfolder + self.experiment_name + '/data/y_test.npy', allow_pickle=True)
+    global train_samples, val_samples
+    y_train = np.load(self.output_folder + self.experiment_name + '/data/y_train.npy', allow_pickle=True)
+    y_val = np.load(self.output_folder + self.experiment_name + '/data/y_val.npy', allow_pickle=True)
+    y_test = np.load(self.output_folder + self.experiment_name + '/data/y_test.npy', allow_pickle=True)
 
     # if bootstrapping then generate appropriate samples for each
     if bootstrap_eval:
@@ -153,7 +152,7 @@ def evaluate(self, n_bootstraping_samples=100, n_jobs=20, bootstrap_eval=False, 
             test_samples = np.array(get_appropriate_bootstrap_samples(y_test, n_bootstraping_samples))
             val_samples = np.array(get_appropriate_bootstrap_samples(y_val, n_bootstraping_samples))
         else:
-            test_samples = np.load(self.outputfolder + self.experiment_name + '/test_bootstrap_ids.npy',
+            test_samples = np.load(self.output_folder + self.experiment_name + '/test_bootstrap_ids.npy',
                                    allow_pickle=True)
     else:
         train_samples = np.array([range(len(y_train))])
@@ -161,15 +160,15 @@ def evaluate(self, n_bootstraping_samples=100, n_jobs=20, bootstrap_eval=False, 
         val_samples = np.array([range(len(y_val))])
 
     # store samples for future evaluations
-    train_samples.dump(self.outputfolder + self.experiment_name + '/train_bootstrap_ids.npy')
-    test_samples.dump(self.outputfolder + self.experiment_name + '/test_bootstrap_ids.npy')
-    val_samples.dump(self.outputfolder + self.experiment_name + '/val_bootstrap_ids.npy')
+    train_samples.dump(self.output_folder + self.experiment_name + '/train_bootstrap_ids.npy')
+    test_samples.dump(self.output_folder + self.experiment_name + '/test_bootstrap_ids.npy')
+    val_samples.dump(self.output_folder + self.experiment_name + '/val_bootstrap_ids.npy')
 
     # iterate over all models fitted so far
-    for m in sorted(os.listdir(self.outputfolder + self.experiment_name + '/models')):
+    for m in sorted(os.listdir(self.output_folder + self.experiment_name + '/models')):
         print(m)
-        mpath = self.outputfolder + self.experiment_name + '/models/' + m + '/'
-        rpath = self.outputfolder + self.experiment_name + '/models/' + m + '/results/'
+        mpath = self.output_folder + self.experiment_name + '/models/' + m + '/'
+        rpath = self.output_folder + self.experiment_name + '/models/' + m + '/results/'
 
         # load predictions
         y_train_pred = np.load(mpath + 'y_train_pred.npy', allow_pickle=True)
@@ -181,16 +180,6 @@ def evaluate(self, n_bootstraping_samples=100, n_jobs=20, bootstrap_eval=False, 
             thresholds = find_optimal_cutoff_thresholds_for_Gbeta(y_train, y_train_pred)
         else:
             thresholds = None
-
-        # New added
-        '''
-        if self.experiment_name != 'exp_ICBEB':
-            # compute classwise thresholds such that recall-focused Gbeta is optimized
-            thresholds = utilsClass.find_optimal_cutoff_thresholds_for_Gbeta(y_train, y_train_pred)
-            print(thresholds)
-        else:
-            thresholds = None   
-        '''
 
         pool = multiprocessing.Pool(n_jobs)
 
