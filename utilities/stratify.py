@@ -1,21 +1,22 @@
 import numpy as np
 from tqdm import tqdm
 
-def stratisfy_df(df, new_col_name, n_folds=10, nr_clean_folds=0):
+
+def stratify_df(df, new_col_name, n_folds=10, nr_clean_folds=0):
     # compute qualities as described in PTB-XL report
-    quals = []
+    qualities = []
     for i, row in df.iterrows():
         q = 0
         if 'validated_by_human' in df.columns:
-            if row.validated_by_human == True:
+            if row.validated_by_human:
                 q = 1
-        quals.append(q)
-    df['quality'] = quals
+        qualities.append(q)
+    df['quality'] = qualities
 
-    # create stratisfied folds according to patients
+    # create stratified folds according to patients
     pat_ids = np.array(sorted(list(set(df.patient_id.values))))
-    plabels = []
-    pquals = []
+    p_labels = []
+    p_qualities = []
     ecgs_per_patient = []
 
     for pid in tqdm(pat_ids):
@@ -29,21 +30,21 @@ def stratisfy_df(df, new_col_name, n_folds=10, nr_clean_folds=0):
         for age in sel.age.values:
             if age < 20:
                 l = np.concatenate((l, ['<20']))
-            elif age >= 20 and age < 40:
+            elif 20 <= age < 40:
                 l = np.concatenate((l, ['20-40']))
-            elif age >= 40 and age < 60:
+            elif 40 <= age < 60:
                 l = np.concatenate((l, ['40-60']))
-            elif age >= 60 and age < 80:
+            elif 60 <= age < 80:
                 l = np.concatenate((l, ['60-80']))
             elif age >= 80:
                 l = np.concatenate((l, ['>=80']))
-        plabels.append(l)
+        p_labels.append(l)
         ecgs_per_patient.append(len(sel))
-        pquals.append(sel.quality.min())
-    classes = sorted(list(set([item for sublist in plabels for item in sublist])))
+        p_qualities.append(sel.quality.min())
+    classes = sorted(list(set([item for sublist in p_labels for item in sublist])))
 
-    stratified_data_ids, stratified_data = stratify(plabels, classes, [1 / n_folds] * n_folds, pquals,
-                                                              ecgs_per_patient, nr_clean_folds)
+    stratified_data_ids, stratified_data = stratify(p_labels, classes, [1 / n_folds] * n_folds, p_qualities,
+                                                    ecgs_per_patient, nr_clean_folds)
 
     df[new_col_name] = np.zeros(len(df)).astype(int)
     for fold_i, fold_ids in tqdm(enumerate(stratified_data_ids)):
@@ -72,7 +73,8 @@ def stratify(data, classes, ratios, qualities, ecgs_per_patient, nr_clean_folds=
     """
     np.random.seed(0)  # fix the random seed
 
-    # data is now always a list of lists; len(data) is the number of patients; data[i] is the list of all labels for patient i (possibly multiple identical entries)
+    # data is now always a list of lists; len(data) is the number of patients; data[i] is the list of all labels for
+    # patient i (possibly multiple identical entries)
 
     # size is the number of ecgs
     size = np.sum(ecgs_per_patient)
@@ -96,7 +98,7 @@ def stratify(data, classes, ratios, qualities, ecgs_per_patient, nr_clean_folds=
     print("Assigning patients to folds...")
     size_prev = size + 1  # just for output
     while size > 0:
-        if (int(size_prev / 1000) > int(size / 1000)):
+        if int(size_prev / 1000) > int(size / 1000):
             print("Remaining patients/ecgs to distribute:", size, "non-empty labels:",
                   np.sum([1 for l, label_data in per_label_data.items() if len(label_data) > 0]))
         size_prev = size
@@ -127,7 +129,7 @@ def stratify(data, classes, ratios, qualities, ecgs_per_patient, nr_clean_folds=
             subset_sizes_for_label = per_label_subset_sizes[label]  # current subset sizes for the chosen label
 
             # if quality is bad remove clean folds (i.e. sample cannot be assigned to clean folds)
-            if (qualities[current_id] < 1):
+            if qualities[current_id] < 1:
                 subset_sizes_for_label = subset_sizes_for_label[:len(ratios) - nr_clean_folds]
 
             # Find argmax clj i.e. subset in greatest need of the current label
@@ -159,7 +161,7 @@ def stratify(data, classes, ratios, qualities, ecgs_per_patient, nr_clean_folds=
             for x in per_label_data.keys():
                 per_label_data[x] = [y for y in per_label_data[x] if y != current_id]
 
-    # Create the stratified dataset as a list of subsets, each containing the orginal labels
+    # Create the stratified dataset as a list of subsets, each containing the original labels
     stratified_data_ids = [sorted(strat) for strat in stratified_data_ids]
     stratified_data = [
         [data[i] for i in strat] for strat in stratified_data_ids
