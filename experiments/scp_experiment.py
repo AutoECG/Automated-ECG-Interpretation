@@ -102,9 +102,9 @@ def perform(self):
         if model_type == 'WAVELET':
             model = WaveletModel(model_name, n_classes, self.sampling_frequency, mpath, self.input_shape,
                                  **model_params)
-        elif model_type == "fastai_model":
-            model = fastaiModel.fastai_model(model_name, n_classes, self.sampling_frequency, mpath, self.input_shape,
-                                             **model_params)
+        elif model_type == "FastaiModel":
+            model = fastaiModel.FastaiModel(model_name, n_classes, self.sampling_frequency, mpath, self.input_shape,
+                                            **model_params)
         else:
             assert True
             break
