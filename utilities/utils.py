@@ -1,21 +1,13 @@
 import os
-import sys
-import re
 import glob
 import pickle
-import copy
-
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 import wfdb
 import ast
-from sklearn.metrics import fbeta_score, roc_auc_score, roc_curve, roc_curve, auc, confusion_matrix, \
-    ConfusionMatrixDisplay, classification_report
+from sklearn.metrics import roc_auc_score, roc_curve
 from sklearn.preprocessing import StandardScaler, MultiLabelBinarizer
-from matplotlib.axes._axes import _log as matplotlib_axes_logger
-import warnings
 
 
 # EVALUATION STUFF
@@ -45,22 +37,11 @@ def evaluate_experiment(y_true, y_pred, thresholds=None):
     # label based metric
     results['macro_auc'] = roc_auc_score(y_true, y_pred, average='macro')
 
-    my_df = pd.DataFrame(y_true)
-    my_df.to_csv('foo.csv', index=False)
-    # qwe = roc_auc_score(y_true,y_pred) #work
-    # print(qwe)
-    # print(y_true.shape)
-    # print(y_pred.shape)
-    # wer = np.argmax(y_pred, axis=1)
-    # print(wer.shape)
-    #  zaki = classification_report(y_true, y_pred)
-    # print(zaki)
-
     df_result = pd.DataFrame(results, index=[0])
     return df_result
 
 
-def challenge_metrics(y_true, y_pred, beta1=2, beta2=2, class_weights=None, single=False):
+def challenge_metrics(y_true, y_pred, beta1=2, beta2=2, single=False):
     f_beta = 0
     g_beta = 0
     TP, FP, TN, FN = 0., 0., 0., 0.
@@ -80,14 +61,14 @@ def challenge_metrics(y_true, y_pred, beta1=2, beta2=2, class_weights=None, sing
             sample_weight = sample_weights[i]
             if y_truei[i] == y_predi[i] == 1:
                 TP += 1. / sample_weight
-            if ((y_predi[i] == 1) and (y_truei[i] != y_predi[i])):
+            if (y_predi[i] == 1) and (y_truei[i] != y_predi[i]):
                 FP += 1. / sample_weight
             if y_truei[i] == y_predi[i] == 0:
                 TN += 1. / sample_weight
-            if ((y_predi[i] == 0) and (y_truei[i] != y_predi[i])):
+            if (y_predi[i] == 0) and (y_truei[i] != y_predi[i]):
                 FN += 1. / sample_weight
         f_beta_i = ((1 + beta1 ** 2) * TP) / ((1 + beta1 ** 2) * TP + FP + (beta1 ** 2) * FN)
-        g_beta_i = (TP) / (TP + FP + beta2 * FN)
+        g_beta_i = TP / (TP + FP + beta2 * FN)
 
         f_beta += f_beta_i
         g_beta += g_beta_i
@@ -289,8 +270,8 @@ def compute_label_aggregations(df, folder, ctype):
     return df
 
 
-def select_data(XX, YY, ctype, min_samples, outputfolder):
-    # convert multilabel to multi-hot
+def select_data(XX, YY, ctype, min_samples, output_folder):
+    # convert multi_label to multi-hot
     mlb = MultiLabelBinarizer()
 
     if ctype == 'diagnostic':
@@ -352,8 +333,8 @@ def select_data(XX, YY, ctype, min_samples, outputfolder):
     else:
         pass
 
-    # save LabelBinarizer
-    with open(outputfolder + 'mlb.pkl', 'wb') as tokenizer:
+    # save Label_Binarizer
+    with open(output_folder + 'mlb.pkl', 'wb') as tokenizer:
         pickle.dump(mlb, tokenizer)
 
     return X, Y, y, mlb
@@ -364,12 +345,12 @@ def preprocess_signals(X_train, X_validation, X_test, outputfolder):
     ss = StandardScaler()
     ss.fit(np.vstack(X_train).flatten()[:, np.newaxis].astype(float))
 
-    # Save Standardizer data
+    # Save Standardize data
     with open(outputfolder + 'standard_scaler.pkl', 'wb') as ss_file:
         pickle.dump(ss, ss_file)
 
     return apply_standardizer(X_train, ss), apply_standardizer(X_validation,
-                                                                                     ss), apply_standardizer(
+                                                               ss), apply_standardizer(
         X_test, ss)
 
 
@@ -525,44 +506,4 @@ def generate_ptbxl_summary_table(selection=None, folder='/content/output/'):
 
         for row in df_rest[['Method', e + '_AUC']].sort_values(e + '_AUC', ascending=False).values:
             md_source += '| ' + row[0].replace('fastai_', '') + ' | ' + row[1] + ' |\n'
-    print(md_source)
-
-
-def ICBEBE_table(selection=None, folder='/content/drive/MyDrive/ModelData/output/'):
-    cols = ['macro_auc', 'F_beta_macro', 'G_beta_macro', 'TP', 'TN', 'FP', 'FN', 'Accuracy', 'Precision', 'Recall',
-            'F1']
-
-    if selection is None:
-        models = [m.split('/')[-1].split('_pretrained')[0] for m in glob.glob(folder + 'exp_ICBEB/models/*')]
-    else:
-        models = []
-        for s in selection:
-            # if s != 'Wavelet+NN':
-            models.append(s)
-
-    data = []
-    for model in models:
-        me_res = pd.read_csv(folder + 'exp_ICBEB/models/' + model + '/results/te_results.csv', index_col=0)
-        mcol = []
-        for col in cols:
-            mean = me_res.ix['point'][col]
-            unc = max(me_res.ix['upper'][col] - me_res.ix['point'][col],
-                      me_res.ix['point'][col] - me_res.ix['lower'][col])
-            mcol.append("%.3f(%.2d)" % (np.round(mean, 3), int(unc * 1000)))
-        data.append(mcol)
-    data = np.array(data)
-
-    df = pd.DataFrame(data, columns=cols, index=models)
-    df.to_csv(folder + 'results_icbeb.csv')
-
-    df_rest = df[~df.index.isin(['naive', 'ensemble'])]
-    df_rest = df_rest.sort_values('macro_auc', ascending=False)
-    our_work = 'https://arxiv.org/abs/2004.13701'
-    our_repo = 'https://github.com/helme/ecg_ptbxl_benchmarking/'
-
-    md_source = '| Model | AUC &darr; |  F_beta=2 | G_beta=2 | paper/source | code | \n'
-    md_source += '|---:|:---|:---|:---|:---|:---| \n'
-    for i, row in enumerate(df_rest[cols].values):
-        md_source += '| ' + df_rest.index[i].replace('fastai_', '') + ' | ' + row[0] + ' | ' + row[1] + ' | ' + row[
-            2] + ' | [our work](' + our_work + ') | [this repo](' + our_repo + ')| \n'
     print(md_source)
