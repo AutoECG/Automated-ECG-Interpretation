@@ -1,4 +1,4 @@
-# Automated-ECG-Interpretation &#129728;
+# Automated-ECG-Interpretation 🫀
 
 
 ## Summary 
