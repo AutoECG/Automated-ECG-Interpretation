@@ -208,8 +208,7 @@ class FastaiModel(ClassificationModel):
         if pretrained:
             if pretrained_folder is None:
                 pretrained_folder = Path('../output/exp0/models/' + name.split("_pretrained")[0] + '/')
-                # pretrained_folder = Path('/content/drive/MyDrive/ModelData/output/exp0/models/'+name.split(
-                # "_pretrained")[0]+'/')
+                # pretrained_folder = Path('/output/exp0/models/'+name.split("_pretrained")[0]+'/')
 
             if n_classes_pretrained is None:
                 n_classes_pretrained = 71

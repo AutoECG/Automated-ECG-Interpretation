@@ -365,7 +365,7 @@ def apply_standardizer(X, ss):
 
 # DOCUMENTATION STUFF
 
-def generate_ptbxl_summary_table(selection=None, folder='/content/output/'):
+def generate_ptbxl_summary_table(selection=None, folder='/output/'):
     exps = ['exp0', 'exp1', 'exp1.1', 'exp1.1.1', 'exp2', 'exp3']
     metrics = ['macro_auc', 'Accuracy', 'TP', 'TN', 'FP', 'FN', 'Precision', 'Recall', 'F1']
     #     0            1        2     3     4    5        6          7        8
