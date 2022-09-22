@@ -1,4 +1,5 @@
-# Automated-ECG-Interpretation U+1FAC0
+# Automated-ECG-Interpretation &#129728;
+
 
 ## Summary 
 
