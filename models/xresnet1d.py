@@ -1,15 +1,17 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-
 from enum import Enum
 import re
 # delegates
 import inspect
 
+from torch.nn.utils import weight_norm, spectral_norm
+
+from models.basicconv1d import create_head1d
+
 
 def delegates(to=None, keep=False):
-    "Decorator: replace `**kwargs` in signature with params from `to`"
+    """Decorator: replace `**kwargs` in signature with params from `to`"""
 
     def _f(f):
         if to is None:
@@ -30,7 +32,7 @@ def delegates(to=None, keep=False):
 
 
 def store_attr(self, nms):
-    "Store params named in comma-separated `nms` from calling context into attrs in `self`"
+    """Store params named in comma-separated `nms` from calling context into attrs in `self`"""
     mod = inspect.currentframe().f_back.f_locals
     for n in re.split(', *', nms): setattr(self, n, mod[n])
 
@@ -39,13 +41,13 @@ NormType = Enum('NormType', 'Batch BatchZero Weight Spectral Instance InstanceZe
 
 
 def _conv_func(ndim=2, transpose=False):
-    "Return the proper conv `ndim` function, potentially `transposed`."
+    """Return the proper conv `ndim` function, potentially `transposed`."""
     assert 1 <= ndim <= 3
     return getattr(nn, f'Conv{"Transpose" if transpose else ""}{ndim}d')
 
 
 def init_default(m, func=nn.init.kaiming_normal_):
-    "Initialize `m` weights with `func` and set `bias` to 0."
+    """Initialize `m` weights with `func` and set `bias` to 0."""
     if func and hasattr(m, 'weight'): func(m.weight)
     with torch.no_grad():
         if getattr(m, 'bias', None) is not None: m.bias.fill_(0.)
@@ -53,7 +55,7 @@ def init_default(m, func=nn.init.kaiming_normal_):
 
 
 def _get_norm(prefix, nf, ndim=2, zero=False, **kwargs):
-    "Norm layer with `nf` features and `ndim` initialized depending on `norm_type`."
+    """Norm layer with `nf` features and `ndim` initialized depending on `norm_type`."""
     assert 1 <= ndim <= 3
     bn = getattr(nn, f"{prefix}{ndim}d")(nf, **kwargs)
     if bn.affine:
@@ -63,12 +65,12 @@ def _get_norm(prefix, nf, ndim=2, zero=False, **kwargs):
 
 
 def BatchNorm(nf, ndim=2, norm_type=NormType.Batch, **kwargs):
-    "BatchNorm layer with `nf` features and `ndim` initialized depending on `norm_type`."
+    """BatchNorm layer with `nf` features and `ndim` initialized depending on `norm_type`."""
     return _get_norm('BatchNorm', nf, ndim, zero=norm_type == NormType.BatchZero, **kwargs)
 
 
 class ConvLayer(nn.Sequential):
-    "Create a sequence of convolutional (`ni` to `nf`), ReLU (if `use_activ`) and `norm_type` layers."
+    """Create a sequence of convolutional (`ni` to `nf`), ReLU (if `use_activ`) and `norm_type` layers."""
 
     def __init__(self, ni, nf, ks=3, stride=1, padding=None, bias=None, ndim=2, norm_type=NormType.Batch, bn_1st=True,
                  act_cls=nn.ReLU, transpose=False, init=nn.init.kaiming_normal_, xtra=None, **kwargs):
@@ -87,27 +89,27 @@ class ConvLayer(nn.Sequential):
         act_bn = []
         if act_cls is not None: act_bn.append(act_cls())
         if bn: act_bn.append(BatchNorm(nf, norm_type=norm_type, ndim=ndim))
-        if inn: act_bn.append(InstanceNorm(nf, norm_type=norm_type, ndim=ndim))
+        if inn: act_bn.append(nn.InstanceNorm2d(nf, norm_type=norm_type, ndim=ndim))
         if bn_1st: act_bn.reverse()
         layers += act_bn
         if xtra: layers.append(xtra)
-        super().__init__(*layers)
+        super().__init__()
 
 
 def AdaptiveAvgPool(sz=1, ndim=2):
-    "nn.AdaptiveAvgPool layer for `ndim`"
+    """nn.AdaptiveAvgPool layer for `ndim`"""
     assert 1 <= ndim <= 3
     return getattr(nn, f"AdaptiveAvgPool{ndim}d")(sz)
 
 
 def MaxPool(ks=2, stride=None, padding=0, ndim=2, ceil_mode=False):
-    "nn.MaxPool layer for `ndim`"
+    """nn.MaxPool layer for `ndim`"""
     assert 1 <= ndim <= 3
     return getattr(nn, f"MaxPool{ndim}d")(ks, stride=stride, padding=padding)
 
 
 def AvgPool(ks=2, stride=None, padding=0, ndim=2, ceil_mode=False):
-    "nn.AvgPool layer for `ndim`"
+    """nn.AvgPool layer for `ndim`"""
     assert 1 <= ndim <= 3
     return getattr(nn, f"AvgPool{ndim}d")(ks, stride=stride, padding=padding, ceil_mode=ceil_mode)
 
@@ -136,8 +138,8 @@ class ResBlock(nn.Module):
             ConvLayer(nh2, nf, 1, groups=g2, **k1)]
         self.convs = nn.Sequential(*layers)
         convpath = [self.convs]
-        if reduction: convpath.append(SEModule(nf, reduction=reduction, act_cls=act_cls))
-        if sa: convpath.append(SimpleSelfAttention(nf, ks=1, sym=sym))
+        if reduction: convpath.append(nn.SEModule(nf, reduction=reduction, act_cls=act_cls))
+        if sa: convpath.append(nn.SimpleSelfAttention(nf, ks=1, sym=sym))
         self.convpath = nn.Sequential(*convpath)
         idpath = []
         if ni != nf: idpath.append(ConvLayer(ni, nf, 1, act_cls=None, ndim=ndim, **kwargs))
@@ -176,15 +178,11 @@ class XResNet1d(nn.Sequential):
                                    ndim=1, **kwargs)
                   for i, l in enumerate(layers)]
 
-        head = basic_conv1d.create_head1d(block_szs[-1] * expansion, nc=num_classes, lin_ftrs=lin_ftrs_head, ps=ps_head,
-                                          bn_final=bn_final_head, bn=bn_head, act=act_head,
-                                          concat_pooling=concat_pooling)
+        head = create_head1d(block_szs[-1] * expansion, nc=num_classes, lin_ftrs=lin_ftrs_head, ps=ps_head,
+                             bn_final=bn_final_head, bn=bn_head, act=act_head,
+                             concat_pooling=concat_pooling)
 
-        super().__init__(
-            *stem, nn.MaxPool1d(kernel_size=3, stride=2, padding=1),
-            *blocks,
-            head,
-        )
+        super().__init__(nn.MaxPool1d(kernel_size=3, stride=2, padding=1), head)
         init_cnn(self)
 
     def _make_layer(self, ni, nf, blocks, stride, kernel_size, sa, **kwargs):
@@ -194,7 +192,7 @@ class XResNet1d(nn.Sequential):
               for i in range(blocks)])
 
     def get_layer_groups(self):
-        return (self[3], self[-1])
+        return self[3], self[-1]
 
     def get_output_layer(self):
         return self[-1][-1]

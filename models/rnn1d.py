@@ -1,7 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import math
 from fastai.layers import *
 from fastai.core import *
 
@@ -16,7 +14,7 @@ class AdaptiveConcatPoolRNN(nn.Module):
         t1 = nn.AdaptiveAvgPool1d(1)(x)
         t2 = nn.AdaptiveMaxPool1d(1)(x)
 
-        if (self.bidirectional is False):
+        if self.bidirectional is False:
             t3 = x[:, :, -1]
         else:
             channels = x.size()[1]
@@ -28,12 +26,10 @@ class AdaptiveConcatPoolRNN(nn.Module):
 class RNN1d(nn.Sequential):
     def __init__(self, input_channels, num_classes, lstm=True, hidden_dim=256, num_layers=2, bidirectional=False,
                  ps_head=0.5, act_head="relu", lin_ftrs_head=None, bn=True):
-        layers_tmp = []
         # bs, ch, ts -> ts, bs, ch
+        layers_tmp = [Lambda(lambda x: x.transpose(1, 2)), Lambda(lambda x: x.transpose(0, 1))]
         # LSTM
-        layers_tmp.append(Lambda(lambda x: x.transpose(1, 2)))
-        layers_tmp.append(Lambda(lambda x: x.transpose(0, 1)))
-        if (lstm):
+        if lstm:
             layers_tmp.append(nn.LSTM(input_size=input_channels, hidden_size=hidden_dim, num_layers=num_layers,
                                       bidirectional=bidirectional))
         else:
@@ -43,9 +39,7 @@ class RNN1d(nn.Sequential):
         layers_tmp.append(Lambda(lambda x: x[0].transpose(0, 1)))
         layers_tmp.append(Lambda(lambda x: x.transpose(1, 2)))
 
-        layers_head = []
-
-        layers_head.append(rnn1d.AdaptiveConcatPoolRNN(bidirectional))
+        layers_head = [AdaptiveConcatPoolRNN(bidirectional)]
 
         # classifier
         nf = 3 * hidden_dim if bidirectional is False else 6 * hidden_dim
@@ -61,10 +55,10 @@ class RNN1d(nn.Sequential):
         layers_head = nn.Sequential(*layers_head)
         layers_tmp.append(layers_head)
 
-        super().__init__(*layers_tmp)
+        super().__init__()
 
     def get_layer_groups(self):
-        return (self[-1],)
+        return self[-1],
 
     def get_output_layer(self):
         return self[-1][-1]

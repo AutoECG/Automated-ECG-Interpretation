@@ -1,12 +1,12 @@
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
-from fastai.layers import Flatten
-###############################################################################################
+
 # Standard resnet
+from models.basicconv1d import create_head1d
+
+
 def conv(in_planes, out_planes, stride=1, kernel_size=3):
-    "convolution with padding"
+    """convolution with padding"""
     return nn.Conv1d(in_planes, out_planes, kernel_size=kernel_size, stride=stride,
                      padding=(kernel_size - 1) // 2, bias=False)
 
@@ -14,17 +14,19 @@ def conv(in_planes, out_planes, stride=1, kernel_size=3):
 class BasicBlock1d(nn.Module):
     expansion = 1
 
-    def __init__(self, inplanes, planes, stride=1, kernel_size=[3, 3], downsample=None):
+    def __init__(self, inplanes, planes, stride=1, kernel_size=None, down_sample=None):
+        if kernel_size is None:
+            kernel_size = [3, 3]
         super().__init__()
 
-        if (isinstance(kernel_size, int)): kernel_size = [kernel_size, kernel_size // 2 + 1]
+        if isinstance(kernel_size, int): kernel_size = [kernel_size, kernel_size // 2 + 1]
 
-        self.conv1 = resnet1d.conv(inplanes, planes, stride=stride, kernel_size=kernel_size[0])
+        self.conv1 = conv(inplanes, planes, stride=stride, kernel_size=kernel_size[0])
         self.bn1 = nn.BatchNorm1d(planes)
         self.relu = nn.ReLU(inplace=True)
-        self.conv2 = resnet1d.conv(planes, planes, kernel_size=kernel_size[1])
+        self.conv2 = conv(planes, planes, kernel_size=kernel_size[1])
         self.bn2 = nn.BatchNorm1d(planes)
-        self.downsample = downsample
+        self.down_sample = down_sample
         self.stride = stride
 
     def forward(self, x):
@@ -37,8 +39,8 @@ class BasicBlock1d(nn.Module):
         out = self.conv2(out)
         out = self.bn2(out)
 
-        if self.downsample is not None:
-            residual = self.downsample(x)
+        if self.down_sample is not None:
+            residual = self.down_sample(x)
 
         out += residual
         out = self.relu(out)
@@ -49,7 +51,7 @@ class BasicBlock1d(nn.Module):
 class Bottleneck1d(nn.Module):
     expansion = 4
 
-    def __init__(self, inplanes, planes, stride=1, kernel_size=3, downsample=None):
+    def __init__(self, inplanes, planes, stride=1, kernel_size=3, down_sample=None):
         super().__init__()
 
         self.conv1 = nn.Conv1d(inplanes, planes, kernel_size=1, bias=False)
@@ -60,7 +62,7 @@ class Bottleneck1d(nn.Module):
         self.conv3 = nn.Conv1d(planes, planes * 4, kernel_size=1, bias=False)
         self.bn3 = nn.BatchNorm1d(planes * 4)
         self.relu = nn.ReLU(inplace=True)
-        self.downsample = downsample
+        self.down_sample = down_sample
         self.stride = stride
 
     def forward(self, x):
@@ -77,8 +79,8 @@ class Bottleneck1d(nn.Module):
         out = self.conv3(out)
         out = self.bn3(out)
 
-        if self.downsample is not None:
-            residual = self.downsample(x)
+        if self.down_sample is not None:
+            residual = self.down_sample(x)
 
         out += residual
         out = self.relu(out)
@@ -87,7 +89,7 @@ class Bottleneck1d(nn.Module):
 
 
 class ResNet1d(nn.Sequential):
-    '''1d adaptation of the torchvision resnet'''
+    """1d adaptation of the torchvision resnet"""
 
     def __init__(self, block, layers, kernel_size=3, num_classes=2, input_channels=3, inplanes=64, fix_feature_dim=True,
                  kernel_size_stem=None, stride_stem=2, pooling_stem=True, stride=2, lin_ftrs_head=None, ps_head=0.5,
@@ -96,18 +98,18 @@ class ResNet1d(nn.Sequential):
 
         layers_tmp = []
 
-        if (kernel_size_stem is None):
+        if kernel_size_stem is None:
             kernel_size_stem = kernel_size[0] if isinstance(kernel_size, list) else kernel_size
         # stem
         layers_tmp.append(nn.Conv1d(input_channels, inplanes, kernel_size=kernel_size_stem, stride=stride_stem,
                                     padding=(kernel_size_stem - 1) // 2, bias=False))
         layers_tmp.append(nn.BatchNorm1d(inplanes))
         layers_tmp.append(nn.ReLU(inplace=True))
-        if (pooling_stem is True):
+        if pooling_stem is True:
             layers_tmp.append(nn.MaxPool1d(kernel_size=3, stride=2, padding=1))
         # backbone
         for i, l in enumerate(layers):
-            if (i == 0):
+            if i == 0:
                 layers_tmp.append(self._make_layer(block, inplanes, layers[0], kernel_size=kernel_size))
             else:
                 layers_tmp.append(
@@ -119,26 +121,25 @@ class ResNet1d(nn.Sequential):
         # layers_tmp.append(Flatten())
         # layers_tmp.append(nn.Linear((inplanes if fix_feature_dim else (2**len(layers)*inplanes)) * block.expansion, num_classes))
 
-        head = basic_conv1d.create_head1d(
+        head = create_head1d(
             (inplanes if fix_feature_dim else (2 ** len(layers) * inplanes)) * block.expansion, nc=num_classes,
             lin_ftrs=lin_ftrs_head, ps=ps_head, bn_final=bn_final_head, bn=bn_head, act=act_head,
             concat_pooling=concat_pooling)
         layers_tmp.append(head)
 
-        super().__init__(*layers_tmp)
+        super().__init__()
 
     def _make_layer(self, block, planes, blocks, stride=1, kernel_size=3):
-        downsample = None
+        down_sample = None
 
         if stride != 1 or self.inplanes != planes * block.expansion:
-            downsample = nn.Sequential(
+            down_sample = nn.Sequential(
                 nn.Conv1d(self.inplanes, planes * block.expansion,
                           kernel_size=1, stride=stride, bias=False),
                 nn.BatchNorm1d(planes * block.expansion),
             )
 
-        layers = []
-        layers.append(block(self.inplanes, planes, stride, kernel_size, downsample))
+        layers = [block(self.inplanes, planes, stride, kernel_size, down_sample)]
         self.inplanes = planes * block.expansion
         for i in range(1, blocks):
             layers.append(block(self.inplanes, planes))
@@ -146,7 +147,7 @@ class ResNet1d(nn.Sequential):
         return nn.Sequential(*layers)
 
     def get_layer_groups(self):
-        return (self[6], self[-1])
+        return self[6], self[-1]
 
     def get_output_layer(self):
         return self[-1][-1]
@@ -156,58 +157,63 @@ class ResNet1d(nn.Sequential):
 
 
 def resnet1d18(**kwargs):
-    """Constructs a ResNet-18 model.
     """
-    return resnet1d.ResNet1d(resnet1d.BasicBlock1d, [2, 2, 2, 2], **kwargs)
+    Constructs a ResNet-18 model.
+    """
+    return ResNet1d(BasicBlock1d, [2, 2, 2, 2], **kwargs)
 
 
 def resnet1d34(**kwargs):
-    """Constructs a ResNet-34 model.
     """
-    return resnet1d.ResNet1d(resnet1d.BasicBlock1d, [3, 4, 6, 3], **kwargs)
+    Constructs a ResNet-34 model.
+    """
+    return ResNet1d(BasicBlock1d, [3, 4, 6, 3], **kwargs)
 
 
 def resnet1d50(**kwargs):
-    """Constructs a ResNet-50 model.
     """
-    return resnet1d.ResNet1d(resnet1d.Bottleneck1d, [3, 4, 6, 3], **kwargs)
+    Constructs a ResNet-50 model.
+    """
+    return ResNet1d(Bottleneck1d, [3, 4, 6, 3], **kwargs)
 
 
 def resnet1d101(**kwargs):
-    """Constructs a ResNet-101 model.
     """
-    return resnet1d.ResNet1d(resnet1d.Bottleneck1d, [3, 4, 23, 3], **kwargs)
+    Constructs a ResNet-101 model.
+    """
+    return ResNet1d(Bottleneck1d, [3, 4, 23, 3], **kwargs)
 
 
 def resnet1d152(**kwargs):
-    """Constructs a ResNet-152 model.
     """
-    return resnet1d.ResNet1d(resnet1d.Bottleneck1d, [3, 8, 36, 3], **kwargs)
+    Constructs a ResNet-152 model.
+    """
+    return ResNet1d(Bottleneck1d, [3, 8, 36, 3], **kwargs)
 
 
 # original used kernel_size_stem = 8
 def resnet1d_wang(**kwargs):
-    if (not ("kernel_size" in kwargs.keys())):
+    if not ("kernel_size" in kwargs.keys()):
         kwargs["kernel_size"] = [5, 3]
-    if (not ("kernel_size_stem" in kwargs.keys())):
+    if not ("kernel_size_stem" in kwargs.keys()):
         kwargs["kernel_size_stem"] = 7
-    if (not ("stride_stem" in kwargs.keys())):
+    if not ("stride_stem" in kwargs.keys()):
         kwargs["stride_stem"] = 1
-    if (not ("pooling_stem" in kwargs.keys())):
+    if not ("pooling_stem" in kwargs.keys()):
         kwargs["pooling_stem"] = False
-    if (not ("inplanes" in kwargs.keys())):
+    if not ("inplanes" in kwargs.keys()):
         kwargs["inplanes"] = 128
 
-    return resnet1d.ResNet1d(resnet1d.BasicBlock1d, [1, 1, 1], **kwargs)
+    return ResNet1d(BasicBlock1d, [1, 1, 1], **kwargs)
 
 
 def resnet1d(**kwargs):
-    """Constructs a custom ResNet model.
     """
-    return resnet1d.ResNet1d(resnet1d.BasicBlock1d, **kwargs)
+    Constructs a custom ResNet model.
+    """
+    return ResNet1d(BasicBlock1d, **kwargs)
 
 
-###############################################################################################
 # wide resnet adopted from fastai wrn
 
 def noop(x): return x
@@ -228,21 +234,21 @@ def _bn1d(ni, init_zero=False):
 
 
 def bn_relu_conv1d(ni, nf, ks, stride, init_zero=False):
-    bn_initzero = resnet1d._bn1d(ni, init_zero=init_zero)
-    return nn.Sequential(bn_initzero, nn.ReLU(inplace=True), resnet1d.conv1d(ni, nf, ks, stride))
+    bn_initzero = _bn1d(ni, init_zero=init_zero)
+    return nn.Sequential(bn_initzero, nn.ReLU(inplace=True), conv1d(ni, nf, ks, stride))
 
 
 class BasicBlock1dwrn(nn.Module):
     def __init__(self, ni, nf, stride, drop_p=0.0, ks=3):
         super().__init__()
-        if (isinstance(ks, int)):
+        if isinstance(ks, int):
             ks = [ks, ks // 2 + 1]
         self.bn = nn.BatchNorm1d(ni)
-        self.conv1 = resnet1d.conv1d(ni, nf, ks[0], stride)
-        self.conv2 = resnet1d.bn_relu_conv1d(nf, nf, ks[0], 1)
+        self.conv1 = conv1d(ni, nf, ks[0], stride)
+        self.conv2 = bn_relu_conv1d(nf, nf, ks[0], 1)
         self.drop = nn.Dropout(drop_p, inplace=True) if drop_p else None
-        self.shortcut = resnet1d.conv1d(ni, nf, ks[1], stride) if (
-                    ni != nf or stride > 1) else resnet1d.noop  # adapted to make it work for fix_feature_dim=True
+        self.shortcut = conv1d(ni, nf, ks[1], stride) if (
+                ni != nf or stride > 1) else noop  # adapted to make it work for fix_feature_dim=True
 
     def forward(self, x):
         x2 = F.relu(self.bn(x), inplace=True)
@@ -266,22 +272,22 @@ class WideResNet1d(nn.Sequential):
 
         for i in range(num_groups): n_channels.append(start_nf if fix_feature_dim else start_nf * (2 ** i) * k)
 
-        layers = [resnet1d.conv1d(input_channels, n_channels[0], 3, 1)]  # conv1 stem
+        layers = [conv1d(input_channels, n_channels[0], 3, 1)]  # conv1 stem
         for i in range(num_groups):
-            layers += resnet1d._make_group(N, n_channels[i], n_channels[i + 1], resnet1d.BasicBlock1dwrn,
-                                           (1 if i == 0 else 2), drop_p, ks=kernel_size)
+            layers += _make_group(N, n_channels[i], n_channels[i + 1], BasicBlock1dwrn,
+                                  (1 if i == 0 else 2), drop_p, ks=kernel_size)
 
         # layers += [nn.BatchNorm1d(n_channels[-1]), nn.ReLU(inplace=True), nn.AdaptiveAvgPool1d(1),
         #           Flatten(), nn.Linear(n_channels[-1], num_classes)]
-        head = basic_conv1d.create_head1d(n_channels[-1], nc=num_classes, lin_ftrs=lin_ftrs_head, ps=ps_head,
-                                          bn_final=bn_final_head, bn=bn_head, act=act_head,
-                                          concat_pooling=concat_pooling)
+        head = create_head1d(n_channels[-1], nc=num_classes, lin_ftrs=lin_ftrs_head, ps=ps_head,
+                             bn_final=bn_final_head, bn=bn_head, act=act_head,
+                             concat_pooling=concat_pooling)
         layers.append(head)
 
-        super().__init__(*layers)
+        super().__init__()
 
     def get_layer_groups(self):
-        return (self[6], self[-1])
+        return self[6], self[-1]
 
     def get_output_layer(self):
         return self[-1][-1]
@@ -290,4 +296,4 @@ class WideResNet1d(nn.Sequential):
         self[-1][-1] = x
 
 
-def wrn1d_22(**kwargs): return resnet1d.WideResNet1d(num_groups=3, N=3, k=6, drop_p=0., **kwargs)
+def wrn1d_22(**kwargs): return WideResNet1d(num_groups=3, N=3, k=6, drop_p=0., **kwargs)

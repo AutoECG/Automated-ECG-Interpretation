@@ -1,54 +1,78 @@
+from sklearn.linear_model import LogisticRegression
+from sklearn.multiclass import OneVsRestClassifier
+from models.base_model import ClassificationModel
+import pickle
+from tqdm import tqdm
+import numpy as np
+from sklearn.ensemble import RandomForestClassifier
+import pywt
+import scipy.stats
+import multiprocessing
+from collections import Counter
+from keras.layers import Dropout, Dense, Input
+from keras.models import Model
+from keras.models import load_model
+from keras.callbacks import ModelCheckpoint
+from sklearn.preprocessing import StandardScaler
+
+
 def calculate_entropy(list_values):
-        counter_values = Counter(list_values).most_common()
-        probabilities = [elem[1] / len(list_values) for elem in counter_values]
-        entropy = scipy.stats.entropy(probabilities)
-        return entropy
+    counter_values = Counter(list_values).most_common()
+    probabilities = [elem[1] / len(list_values) for elem in counter_values]
+    entropy = scipy.stats.entropy(probabilities)
+    return entropy
+
 
 def calculate_statistics(list_values):
-        n5 = np.nanpercentile(list_values, 5)
-        n25 = np.nanpercentile(list_values, 25)
-        n75 = np.nanpercentile(list_values, 75)
-        n95 = np.nanpercentile(list_values, 95)
-        median = np.nanpercentile(list_values, 50)
-        mean = np.nanmean(list_values)
-        std = np.nanstd(list_values)
-        var = np.nanvar(list_values)
-        rms = np.nanmean(np.sqrt(list_values ** 2))
-        return [n5, n25, n75, n95, median, mean, std, var, rms]
+    n5 = np.nanpercentile(list_values, 5)
+    n25 = np.nanpercentile(list_values, 25)
+    n75 = np.nanpercentile(list_values, 75)
+    n95 = np.nanpercentile(list_values, 95)
+    median = np.nanpercentile(list_values, 50)
+    mean = np.nanmean(list_values)
+    std = np.nanstd(list_values)
+    var = np.nanvar(list_values)
+    rms = np.nanmean(np.sqrt(list_values ** 2))
+    return [n5, n25, n75, n95, median, mean, std, var, rms]
+
 
 def calculate_crossings(list_values):
-        zero_crossing_indices = np.nonzero(np.diff(np.array(list_values) > 0))[0]
-        no_zero_crossings = len(zero_crossing_indices)
-        mean_crossing_indices = np.nonzero(np.diff(np.array(list_values) > np.nanmean(list_values)))[0]
-        no_mean_crossings = len(mean_crossing_indices)
-        return [no_zero_crossings, no_mean_crossings]
+    zero_crossing_indices = np.nonzero(np.diff(np.array(list_values) > 0))[0]
+    no_zero_crossings = len(zero_crossing_indices)
+    mean_crossing_indices = np.nonzero(np.diff(np.array(list_values) > np.nanmean(list_values)))[0]
+    no_mean_crossings = len(mean_crossing_indices)
+    return [no_zero_crossings, no_mean_crossings]
+
 
 def get_features(list_values):
-        entropy = wavelet.calculate_entropy(list_values)
-        crossings = wavelet.calculate_crossings(list_values)
-        statistics = wavelet.calculate_statistics(list_values)
-        return [entropy] + crossings + statistics
+    entropy = calculate_entropy(list_values)
+    crossings = calculate_crossings(list_values)
+    statistics = calculate_statistics(list_values)
+    return [entropy] + crossings + statistics
+
 
 def get_single_ecg_features(signal, waveletname='db6'):
-        features = []
-        for channel in signal.T:
-            list_coeff = pywt.wavedec(channel, wavelet=waveletname, level=5)
-            channel_features = []
-            for coeff in list_coeff:
-                channel_features += wavelet.get_features(coeff)
-            features.append(channel_features)
-        return np.array(features).flatten()
+    features = []
+    for channel in signal.T:
+        list_coeff = pywt.wavedec(channel, wavelet=waveletname, level=5)
+        channel_features = []
+        for coeff in list_coeff:
+            channel_features += get_features(coeff)
+        features.append(channel_features)
+    return np.array(features).flatten()
+
 
 def get_ecg_features(ecg_data, parallel=True):
     if parallel:
         pool = multiprocessing.Pool(18)
-        return np.array(pool.map(wavelet.get_single_ecg_features, ecg_data))
+        return np.array(pool.map(get_single_ecg_features, ecg_data))
     else:
         list_features = []
         for signal in tqdm(ecg_data):
-            features = wavelet.get_single_ecg_features(signal)
+            features = get_single_ecg_features(signal)
             list_features.append(features)
         return np.array(list_features)
+
 
 # for keras models
 # def keras_macro_auroc(y_true, y_pred):
@@ -58,6 +82,7 @@ class WaveletModel(ClassificationModel):
     def __init__(self, name, n_classes, freq, outputfolder, input_shape, regularizer_C=.001, classifier='RF'):
         # Disclaimer: This model assumes equal shapes across all samples!
         # standard parameters
+        super().__init__()
         self.name = name
         self.outputfolder = outputfolder
         self.n_classes = n_classes
@@ -103,7 +128,7 @@ class WaveletModel(ClassificationModel):
             # monitor validation error
             mc_loss = ModelCheckpoint(self.outputfolder + 'best_loss_model.h5', monitor='val_loss', mode='min',
                                       verbose=1, save_best_only=True)
-            # mc_score = ModelCheckpoint(self.outputfolder +'best_score_model.h5', monitor='val_keras_macro_auroc', mode='max', verbose=1, save_best_only=True)
+            # mc_score = ModelCheckpoint(self.output_folder +'best_score_model.h5', monitor='val_keras_macro_auroc', mode='max', verbose=1, save_best_only=True)
             self.model.fit(XFT_train, y_train, validation_data=(XFT_val, y_val), epochs=self.epochs, batch_size=128,
                            callbacks=[mc_loss])  # , mc_score])
             self.model.save(self.outputfolder + 'last_model.h5')
@@ -127,5 +152,7 @@ class WaveletModel(ClassificationModel):
             ss = pickle.load(open(self.outputfolder + 'ss.pkl', 'rb'))  #
             XFT = ss.transform(XF)
             model = load_model(
-                self.outputfolder + 'best_loss_model.h5')  # 'best_score_model.h5', custom_objects={'keras_macro_auroc': keras_macro_auroc})
+                self.outputfolder + 'best_loss_model.h5')
+            # 'best_score_model.h5', custom_objects={
+            # 'keras_macro_auroc': keras_macro_auroc})
             return model.predict(XFT)

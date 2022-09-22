@@ -1,11 +1,11 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import math
-from fastai.layers import *
 from fastai.core import *
 
 # Inception time inspired by https://github.com/hfawaz/InceptionTime/blob/master/classifiers/inception.py and https://github.com/tcapelle/TimeSeries_fastai/blob/master/inception.py
+from models.basicconv1d import create_head1d
+
+
 def conv(in_planes, out_planes, kernel_size=3, stride=1):
     "convolution with padding"
     return nn.Conv1d(in_planes, out_planes, kernel_size=kernel_size, stride=stride,
@@ -18,11 +18,11 @@ def noop(x): return x
 class InceptionBlock1d(nn.Module):
     def __init__(self, ni, nb_filters, kss, stride=1, act='linear', bottleneck_size=32):
         super().__init__()
-        self.bottleneck = inception1d.conv(ni, bottleneck_size, 1, stride) if (bottleneck_size > 0) else noop
+        self.bottleneck = conv(ni, bottleneck_size, 1, stride) if (bottleneck_size > 0) else noop
 
         self.convs = nn.ModuleList(
-            [inception1d.conv(bottleneck_size if (bottleneck_size > 0) else ni, nb_filters, ks) for ks in kss])
-        self.conv_bottle = nn.Sequential(nn.MaxPool1d(3, stride, padding=1), inception1d.conv(ni, nb_filters, 1))
+            [conv(bottleneck_size if (bottleneck_size > 0) else ni, nb_filters, ks) for ks in kss])
+        self.conv_bottle = nn.Sequential(nn.MaxPool1d(3, stride, padding=1), conv(ni, nb_filters, 1))
         self.bn_relu = nn.Sequential(nn.BatchNorm1d((len(kss) + 1) * nb_filters), nn.ReLU())
 
     def forward(self, x):
@@ -36,7 +36,7 @@ class Shortcut1d(nn.Module):
     def __init__(self, ni, nf):
         super().__init__()
         self.act_fn = nn.ReLU(True)
-        self.conv = inception1d.conv(ni, nf, 1)
+        self.conv = conv(ni, nf, 1)
         self.bn = nn.BatchNorm1d(nf)
 
     def forward(self, inp, out):
@@ -54,11 +54,11 @@ class InceptionBackbone(nn.Module):
         self.use_residual = use_residual
 
         n_ks = len(kss) + 1
-        self.im = nn.ModuleList([inception1d.InceptionBlock1d(input_channels if d == 0 else n_ks * nb_filters,
-                                                              nb_filters=nb_filters, kss=kss,
-                                                              bottleneck_size=bottleneck_size) for d in range(depth)])
+        self.im = nn.ModuleList([InceptionBlock1d(input_channels if d == 0 else n_ks * nb_filters,
+                                                  nb_filters=nb_filters, kss=kss,
+                                                  bottleneck_size=bottleneck_size) for d in range(depth)])
         self.sk = nn.ModuleList(
-            [inception1d.Shortcut1d(input_channels if d == 0 else n_ks * nb_filters, n_ks * nb_filters) for d in
+            [Shortcut1d(input_channels if d == 0 else n_ks * nb_filters, n_ks * nb_filters) for d in
              range(depth // 3)])
 
     def forward(self, x):
@@ -73,7 +73,7 @@ class InceptionBackbone(nn.Module):
 
 
 class Inception1d(nn.Module):
-    '''inception time architecture'''
+    """inception time architecture"""
 
     def __init__(self, num_classes=2, input_channels=8, kernel_size=40, depth=6, bottleneck_size=32, nb_filters=32,
                  use_residual=True, lin_ftrs_head=None, ps_head=0.5, bn_final_head=False, bn_head=True, act_head="relu",
@@ -83,15 +83,15 @@ class Inception1d(nn.Module):
         kernel_size = [k - 1 if k % 2 == 0 else k for k in
                        [kernel_size, kernel_size // 2, kernel_size // 4]]  # was 39,19,9
 
-        layers = [inception1d.InceptionBackbone(input_channels=input_channels, kss=kernel_size, depth=depth,
-                                                bottleneck_size=bottleneck_size, nb_filters=nb_filters,
-                                                use_residual=use_residual)]
+        layers = [InceptionBackbone(input_channels=input_channels, kss=kernel_size, depth=depth,
+                                    bottleneck_size=bottleneck_size, nb_filters=nb_filters,
+                                    use_residual=use_residual)]
 
         n_ks = len(kernel_size) + 1
         # head
-        head = basic_conv1d.create_head1d(n_ks * nb_filters, nc=num_classes, lin_ftrs=lin_ftrs_head, ps=ps_head,
-                                          bn_final=bn_final_head, bn=bn_head, act=act_head,
-                                          concat_pooling=concat_pooling)
+        head = create_head1d(n_ks * nb_filters, nc=num_classes, lin_ftrs=lin_ftrs_head, ps=ps_head,
+                             bn_final=bn_final_head, bn=bn_head, act=act_head,
+                             concat_pooling=concat_pooling)
         layers.append(head)
         # layers.append(AdaptiveConcatPool1d())
         # layers.append(Flatten())
@@ -103,10 +103,10 @@ class Inception1d(nn.Module):
 
     def get_layer_groups(self):
         depth = self.layers[0].depth
-        if (depth > 3):
-            return ((self.layers[0].im[3:], self.layers[0].sk[1:]), self.layers[-1])
+        if depth > 3:
+            return (self.layers[0].im[3:], self.layers[0].sk[1:]), self.layers[-1]
         else:
-            return (self.layers[-1])
+            return self.layers[-1]
 
     def get_output_layer(self):
         return self.layers[-1][-1]
@@ -116,6 +116,7 @@ class Inception1d(nn.Module):
 
 
 def inception1d(**kwargs):
-    """Constructs an Inception model
     """
-    return inception1d.Inception1d(**kwargs)
+    Constructs an Inception model
+    """
+    return Inception1d(**kwargs)
