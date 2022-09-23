@@ -1,9 +1,9 @@
 # Automated ECG Interpretation
 
 [![Contributors][contributors-shield]][contributors-url]
-[![Forks][forks-shield]][forks-url]
-[![Stargazers][stars-shield]][stars-url]
-[![Issues][issues-shield]][issues-url]
+[![GitHub forks](https://img.shields.io/github/forks/AutoECG/Automated-ECG-Interpretation?color=lightgray&style=flat-square)](https://github.com/AutoECG/Automated-ECG-Interpretation/network)
+[![GitHub stars](https://img.shields.io/github/stars/AutoECG/Automated-ECG-Interpretation?color=yellow&style=flat-square)](https://github.com/AutoECG/Automated-ECG-Interpretation/stargazers)
+[![GitHub issues](https://img.shields.io/github/issues/AutoECG/Automated-ECG-Interpretation?color=red&style=flat-square)](https://github.com/AutoECG/Automated-ECG-Interpretation/issues)
 
 <br>
 
@@ -151,9 +151,3 @@ Feel free to reach out to us:
 <!-- MARKDOWN LINKS -->
 [contributors-shield]: https://img.shields.io/github/contributors/AutoECG/Automated-ECG-Interpretation.svg?style=flat-square&color=blue
 [contributors-url]: https://github.com/AutoECG/Automated-ECG-Interpretation/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/AutoECG/Automated-ECG-Interpretation.svg?style=flat-square&color=lightgray
-[forks-url]: https://github.com/AutoECG/Automated-ECG-Interpretation/network/members
-[stars-shield]: https://img.shields.io/github/stars/AutoECG/Automated-ECG-Interpretation.svg?style=flat-square&color=yellow
-[stars-url]: https://github.com/AutoECG/Automated-ECG-Interpretation/stargazers
-[issues-shield]: https://img.shields.io/github/issues/AutoECG/Automated-ECG-Interpretation.svg?style=flat-square&color=red
-[issues-url]: https://github.com/AutoECG/Automated-ECG-Interpretation/issues
