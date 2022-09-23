@@ -1,4 +1,4 @@
-# Automated ECG Interpretation
+# Automated ECG Interpretation :anatomical_heart:	
 
 [![Contributors][contributors-shield]][contributors-url]
 [![Forks][forks-shield]][forks-url]
