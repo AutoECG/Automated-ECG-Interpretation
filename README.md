@@ -148,9 +148,19 @@ Don't forget to give the project a star! Thanks again!
 4. Push to the Branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
+## Future Works
+
+1. Model Code Refactoring in TensorFlow technology
+2. Model Deployment
+3. Continue Preprocessing new data from Hospitals to test model reliability and accuracy. 
+4. Figure out different parsing options for xml ecg files
+
+
 ## Contact
 
-Feel free to reach out to us at: [autoecgucas@gmail.com](mailto:autoecgucas@gmail.com)
+Feel free to reach out to us:
+DM [Zaki Kurdya](https://twitter.com/ZakiKurdya)
+DM [Zeina Saadeddin](https://twitter.com/jszeina)
 
 <!-- MARKDOWN LINKS -->
 [contributors-shield]: https://img.shields.io/github/contributors/AutoECG/Automated-ECG-Interpretation.svg?style=flat-square&color=blue
