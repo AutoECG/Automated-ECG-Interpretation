@@ -135,7 +135,7 @@ where for each experiment a sub-folder is created each with `data/`, `models/` a
 
 We also provide a [compressed zip-archive](https://drive.google.com/drive/folders/17za6IanRm7rpb1ZGHLQ80mJvBj_53LXJ?usp=sharing) containing the `output` folder corresponding to our runs including trained model and predictions.
 
-## Results
+## Inception1d results
 
 | Experiment name  | Accuracy |  Precision | Recall | F1_Score | Specificity |
 | ------------- | ------------- | ------------- | ------------- | ------------- | ------------- |
