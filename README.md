@@ -1,5 +1,15 @@
-# Automated-ECG-Interpretation
+# Automated ECG Interpretation
 
+[![Contributors][contributors-shield]][contributors-url]
+[![Forks][forks-shield]][forks-url]
+[![Stargazers][stars-shield]][stars-url]
+[![Issues][issues-shield]][issues-url]
+
+<br>
+
+<div align="center">
+<img src="https://user-images.githubusercontent.com/46399191/191921241-495090db-a088-46b6-bd09-0f7f21170b0a.png" height="350"/>
+</div>
 
 ## Summary 
 
@@ -61,14 +71,15 @@ ptbxl
           
 The dataset comprises 21837 clinical 12-lead ECG records of 10 seconds length from 18885 patients, where 52% are male and 48% are female with ages covering the whole range from 0 to 95 years (median 62 and interquantile range of 22). The value of the dataset results from the comprehensive collection of many different co-occurring pathologies, but also from a large proportion of healthy control samples. The distribution of diagnosis is as follows, where we restrict for simplicity to diagnostic statements aggregated into superclasses (note: sum of statements exceeds the number of records because of potentially multiple labels per record):
 
-```
-Records | Superclass | Description
-9528 | NORM | Normal ECG
-5486 | MI | Myocardial Infarction
-5250 | STTC | ST/T Change
-4907 | CD | Conduction Disturbance
-2655 | HYP | Hypertrophy
-```
+
+| Records | Superclass | Description |
+|:---|:---|:---|
+9528 | NORM | Normal ECG |
+5486 | MI | Myocardial Infarction |
+5250 | STTC | ST/T Change |
+4907 | CD | Conduction Disturbance |
+2655 | HYP | Hypertrophy |
+
 
 The waveform files are stored in WaveForm DataBase (WFDB) format with 16 bit precision at a resolution of 1μV/LSB and a sampling frequency of 500Hz (records500/). For the user’s convenience we also release a downsampled versions of the waveform data at a sampling frequency of 100Hz (records100/).
 
@@ -86,3 +97,67 @@ All relevant metadata is stored in ptbxldatabase.csv with one row per record ide
 
 All information related to the used annotation scheme is stored in a dedicated scp_statements.csv that was enriched with mappings to other annotation standards such as AHA, aECGREFID, CDISC and DICOM. We provide additional side-information such as the category each statement can be assigned to (diagnostic, form and/or rhythm). For diagnostic statements, we also provide a proposed hierarchical organization into diagnostic_class and diagnostic_subclass.
 
+
+## Setup
+
+### Install dependencies
+Install the dependencies (wfdb, pytorch, torchvision, cudatoolkit, fastai, fastprogress) by creating a conda environment:
+
+    conda env create -f requirements.yml
+    conda activate autoecg_env
+
+### Get data
+Download the dataset (PTB-XL) via the follwing bash-script:
+
+    get_dataset.sh
+
+This script first downloads [PTB-XL from PhysioNet](https://physionet.org/content/ptb-xl/) and stores it in `data/ptbxl/`. 
+
+## Usage
+
+    python main.py
+
+This will perform all experiments for inception1d. 
+Depending on the executing environment, this will take up to several hours. 
+Once finished, all trained models, predictions and results are stored in `output/`, 
+where for each experiment a sub-folder is created each with `data/`, `models/` and `results/` sub-sub-folders. 
+
+| Model | AUC &darr; | Experiment |
+|:---|:---|:---|
+| inception1d | 0.927(00) | All statements |
+| inception1d | 0.929(00) | Diagnostic statements |
+| inception1d | 0.926(00) | Diagnostic subclasses |
+| inception1d | 0.919(00) | Diagnostic superclasses |
+| inception1d | 0.883(00) | Form statements |
+| inception1d | 0.949(00) | Rhythm statements |
+
+### Download model and results
+
+We also provide a [compressed zip-archive](https://drive.google.com/drive/folders/17za6IanRm7rpb1ZGHLQ80mJvBj_53LXJ?usp=sharing) containing the `output` folder corresponding to our runs including trained model and predictions.
+
+## Contributing
+
+Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+
+If you have a suggestion that would make this better, please fork the repo and create a pull request. You can also simply open an issue with the tag "enhancement".
+Don't forget to give the project a star! Thanks again!
+
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## Contact
+
+Feel free to reach out to us at: [autoecgucas@gmail.com](mailto:autoecgucas@gmail.com)
+
+<!-- MARKDOWN LINKS -->
+[contributors-shield]: https://img.shields.io/github/contributors/AutoECG/Automated-ECG-Interpretation.svg?style=flat-square&color=blue
+[contributors-url]: https://github.com/AutoECG/Automated-ECG-Interpretation/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/AutoECG/Automated-ECG-Interpretation.svg?style=flat-square&color=lightgray
+[forks-url]: https://github.com/AutoECG/Automated-ECG-Interpretation/network/members
+[stars-shield]: https://img.shields.io/github/stars/AutoECG/Automated-ECG-Interpretation.svg?style=flat-square&color=yellow
+[stars-url]: https://github.com/AutoECG/Automated-ECG-Interpretation/stargazers
+[issues-shield]: https://img.shields.io/github/issues/AutoECG/Automated-ECG-Interpretation.svg?style=flat-square&color=red
+[issues-url]: https://github.com/AutoECG/Automated-ECG-Interpretation/issues
