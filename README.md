@@ -67,9 +67,9 @@ The dataset comprises 21837 clinical 12-lead ECG records of 10 seconds length fr
 
 The waveform files are stored in WaveForm DataBase (WFDB) format with 16-bit precision at a resolution of 1μV/LSB and a sampling frequency of 500Hz (records500/) beside downsampled versions of the waveform data at a sampling frequency of 100Hz (records100/).
 
-All relevant metadata is stored in ptbxldatabase.csv with one row per record identified by ecgid. It contains 28 columns.
+All relevant metadata is stored in ptbxldatabase.csv with one row per record identified by ecgid and it contains 28 columns.
 
-All information related to the used annotation scheme is stored in a dedicated scp_statements.csv that was enriched with mappings to other annotation standards such as AHA, aECGREFID, CDISC and DICOM. We provide additional side-information such as the category each statement can be assigned to (diagnostic, form and/or rhythm).
+All information related to the used annotation scheme is stored in a dedicated scp_statements.csv that was enriched with mappings to other annotation standards.
 
 ## Setup
 
