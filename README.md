@@ -159,8 +159,9 @@ Don't forget to give the project a star! Thanks again!
 ## Contact
 
 Feel free to reach out to us:
-DM [Zaki Kurdya](https://twitter.com/ZakiKurdya)
-DM [Zeina Saadeddin](https://twitter.com/jszeina)
+- DM [Zaki Kurdya](https://twitter.com/ZakiKurdya)
+- DM [Zeina Saadeddin](https://twitter.com/jszeina)
+- DM [Salam Thabit](https://twitter.com/salamThabetDo)
 
 <!-- MARKDOWN LINKS -->
 [contributors-shield]: https://img.shields.io/github/contributors/AutoECG/Automated-ECG-Interpretation.svg?style=flat-square&color=blue
