@@ -136,10 +136,9 @@ Don't forget to give the project a star! Thanks again!
 
 ## Future Works
 
-1. Model code refactoring in TensorFlow technology.
-2. Model Deployment.
-3. Continue Preprocessing new data from hospitals to test model reliability and accuracy. 
-4. Figure out different parsing options for xml ecg files from different hospitals machines versions.
+1. Model Deployment.
+2. Continue Preprocessing new ECG data from hospitals to test model reliability and accuracy. 
+3. Figure out different parsing options for xml ecg files from different ECG machines versions.
 
 
 ## Contact
