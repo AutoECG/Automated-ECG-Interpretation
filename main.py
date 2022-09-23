@@ -1,11 +1,12 @@
 # model configs
-from fastai_configs import *
-from wavelet_configs import *
+from configurations.fastai_configs import conf_fastai_inception1d
+from experiments.scp_experiment import SCPExperiment
+from utilities.utils import generate_ptbxl_summary_table
 
 
 def main():
-    data_folder = '/data/ptbxl/'
-    output_folder = '/output/'
+    data_folder = 'data/ptbxl/'
+    output_folder = 'output/'
 
     models = [conf_fastai_inception1d]
 
@@ -21,7 +22,7 @@ def main():
     ]
 
     for name, task in experiments:
-        e = SCP_Experiment(name, task, datafolder, output_folder, models)
+        e = SCPExperiment(name, task, data_folder, output_folder, models)
         e.prepare()
         e.perform()
         e.evaluate()
