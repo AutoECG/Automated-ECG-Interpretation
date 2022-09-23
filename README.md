@@ -108,7 +108,7 @@ where for each experiment a sub-folder is created each with `data/`, `models/` a
 
 We also provide a [compressed zip-archive](https://drive.google.com/drive/folders/17za6IanRm7rpb1ZGHLQ80mJvBj_53LXJ?usp=sharing) containing the `output` folder corresponding to our runs including trained model and predictions.
 
-## Inception1d results
+## Results for Inception1d Model
 
 | Experiment name  | Accuracy |  Precision | Recall | F1_Score | Specificity |
 | ------------- | ------------- | ------------- | ------------- | ------------- | ------------- |
@@ -119,9 +119,9 @@ We also provide a [compressed zip-archive](https://drive.google.com/drive/folder
 | Form | 0.9452 | 0.5619 | 0.1420 | 0.3843 | 0.9916 |
 | Rhythm | 0.9844 | 0.7676 | 0.4489 | 0.7290 | 0.9722 |
 
-For more evaluation information visit : [Model Evaluation](https://github.com/AutoECG/Automated-ECG-Interpretation/blob/main/evaluation/Model_Evaluation.ipynb)
+For more evaluation (Confusion Matrix, ROC curve)  information and visualizations visit: [Model Evaluation](https://github.com/AutoECG/Automated-ECG-Interpretation/blob/main/evaluation/Model_Evaluation.ipynb)
 
-## Contributing
+## Contribution
 
 Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
 
